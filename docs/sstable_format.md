@@ -1,46 +1,77 @@
-//! SSTable Module.
-//!
-//! Table([TableBlock], Footer)
-//!     TableBlock(Block, CompressionType(1), CRC(4))
-//!     Block = DataBlock | FilterBlock | MetaIndexBlock | IndexBlock
-//!
-//!     BLOCK_SIZE - default 4KiB
-//!
-//! Table([DataBlock], FilterBlock, MetaIndexBlock, IndexBlock, Footer)
-//!
-//! - DataBlock([Entry], [RestartPoint], restart_point_len(4))
-//!     Entry(shared_key_len, unshared_key_len, value_len, unshared_key, value)
-//!     RestartPoint = offset(4)
-//!
-//!     Block<Key, Value> -> BlockContents
-//!
-//! - FilterBlock([FilterData], [FilterOffset], filter_offsets_offset(4), base_lg(1))
-//!
-//!     Block<Key> -> BlockContents
-//!
-//! - MetaIndexBlock("filter.{name}", BlockHandle -> FilterBlock)
-//!
-//!     Block<Key, Value> -> BlockContents
-//!         key = "filter.{name}"
-//!         value = bytes(BlockHandle)
-//!
-//! - IndexBlock([(MaxKey, BlockHandle -> DataBlock]))
-//!
-//!     Block<Key, Value> -> BlockContents
-//!         key = max key of indexed block (>= block lask key)
-//!         value = bytes(BlockHandle)
-//!
-//! - Footer(MetaIndexBlockHandle -> MetaIndexBlock, IndexBlockHandle -> IndexBlock, Padding, Magic(8))
-//!     MetaIndexBlockHandle = IndexBlockHandle = BlockHandle
-//!
-//! BlockHandle(offset(4), size(4))
-//!
-//! ==============================================================================================
-//!
-//! DataBlock = MetaIndexBlock = IndexBlock = Block<Key, Value> <- Block, BlockIter, BlockBuilder
-//! FilterBlock = Block<Key> <- FilterBlock, FilterBuilder
-//!
-//! ==============================================================================================
+# SSTable Format
+
+> Reference from:
+> - <https://github.com/google/leveldb/blob/main/doc/table_format.md>
+> - <https://leveldb-handbook.readthedocs.io/zh/latest/basic.html>
+
+
+## 1. Table
+
+* Table = ([TableBlock], Footer)
+* - TableBlock = (Block, CompressionType(1), CRC(4))
+* - Block = DataBlock | FilterBlock | MetaIndexBlock | IndexBlock
+* - CompressionType = None | Snap
+
+> BLOCK_SIZE, default 4KiB.
+
+* Table = ([DataBlock'], FilterBlock', MetaIndexBlock', IndexBlock', Footer)
+* - DataBlock' = (DataBlock, CompressionType, CRC)
+* - FilterBlock' = (FilterBlock, CompressionType, CRC)
+* - MetaIndexBlock' = (MetaIndexBlock, CompressionType, CRC)
+* - IndexBlock' = (IndexBlock, CompressionType, CRC)
+
+### 1) DataBlock
+
+* DataBlock = [Entry] + [RestartPoint] + restart_point_len(4)
+* - Entry = shared_key_len + unshared_key_len + value_len + unshared_key + value
+* - RestartPoint = Offset(4)
+
+> BlockContents = Block<Key, Value>
+
+
+### 2) FilterBlock
+
+* FilterBlock = ([FilterData], [FilterOffset], filter_offset_offset(4), base_lg2(1))
+
+> BlockContents = Block<Key>
+
+### 3) MetaIndexBlock
+
+* MetaIndexBlock = ("filter.{name}", BlockHandle -> FilterBlock)
+* - BlockHandle = (Offset, Size)
+
+> BlockContents = Block<Key, Value>
+> - key = "filter.{name}"
+> - value = bytes(BlockHandle)
+
+### 4) IndexBlock
+
+* IndexBlock = ([(MaxKey, BlockHandle -> DataBlock)])
+
+> BlockContents = Block<Key, Value>
+> - key = <max key of indexed block (>= block lask key)>
+> - value = bytes(BlockHandle)
+
+### 5) Footer
+
+* Footer = (BlockHandle -> MetaIndexBlock, BlockHandle -> IndexBlock, Padding, Magic(8))
+
+### 6) BlockHandle
+
+* BlockHandle = (Offset(4), Size(4))
+
+### 7) Block
+
+* DataBlock = MetaIndexBlock = IndexBlock = Block<Key, Value>
+
+> Block, BlockIter, BlockBuilder
+
+* FilterBlock = Block<Key>
+
+> FilterBlock, FilterBlockIter, FilterBlockBuilder
+
+
+
 //!
 //! TableBuilder
 //!     .DataBlockBuilder       -> BlockBuilder
